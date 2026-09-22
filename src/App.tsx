@@ -245,6 +245,43 @@ function App() {
           </div>
         </section>
 
+        <section className="card public-queue-card">
+          <div className="section-header">
+            <MapPinned size={22} />
+            <div>
+              <p className="eyebrow">Acompanhamento público</p>
+              <h2>Motoristas na fila</h2>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>POS</th>
+                  <th>NOME</th>
+                  <th>PLACA</th>
+                  <th>TELEFONE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drivers.length > 0 ? drivers.map((driver) => (
+                  <tr key={`public-${driver.id}`}>
+                    <td><strong>{driver.position}</strong></td>
+                    <td>{driver.name}</td>
+                    <td>{driver.plate}</td>
+                    <td><a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a></td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={4}>Nenhum motorista na fila.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section className="card admin-card">
           {!adminLoggedIn ? (
             <>
