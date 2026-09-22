@@ -26,7 +26,7 @@ function App() {
   const [carrier, setCarrier] = useState('')
   const [joinedDriver, setJoinedDriver] = useState<Driver | null>(null)
   const [adminEmail, setAdminEmail] = useState('admin@fila.com')
-  const [adminPassword, setAdminPassword] = useState('admin123')
+  const [adminPassword, setAdminPassword] = useState('')
   const [adminLoggedIn, setAdminLoggedIn] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
   const [entryMessage, setEntryMessage] = useState('')
@@ -261,7 +261,7 @@ function App() {
 
                 <label>
                   <span>Senha</span>
-                  <input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} placeholder="••••••••" />
+                  <input type="password" autoComplete="new-password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} placeholder="DIGITE SUA SENHA" />
                 </label>
               </div>
 
