@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, ShieldCheck, Truck, User } from 'lucide-react'
+import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, ShieldCheck, Truck, User } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
@@ -13,8 +13,13 @@ function formatMinutes(totalMinutes: number) {
   return `${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}min`
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return 'Não informado'
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+}
+
 function App() {
-  const { drivers, addDriver, callNext, errorMessage } = useQueue()
+  const { drivers, addDriver, callNext, markLoaded, errorMessage } = useQueue()
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
@@ -86,6 +91,7 @@ function App() {
       position: drivers.length + 1,
       waitingMinutes: 0,
       estimatedMinutes: drivers.length * 30,
+      joinedAt: new Date().toISOString(),
     }
 
     const added = await addDriver(newDriver)
@@ -215,9 +221,20 @@ function App() {
             <div>
               <Phone size={18} />
               <span>Telefone</span>
-              <strong>{currentDriver?.phone || '—'}</strong>
+              <strong><a href={currentDriver?.phone ? `tel:${currentDriver.phone.replace(/\D/g, '')}` : undefined}>{currentDriver?.phone || '—'}</a></strong>
+            </div>
+            <div>
+              <Clock3 size={18} />
+              <span>Entrada na fila</span>
+              <strong>{formatDateTime(currentDriver?.joinedAt)}</strong>
             </div>
           </div>
+
+          {currentDriver && !['CARREGADO', 'CANCELADO', 'AUSENTE'].includes(currentDriver.status) ? (
+            <button className="secondary-button" onClick={() => void markLoaded(currentDriver.plate)}>
+              <CheckCircle size={18} /> MARCAR COMO CARREGADO
+            </button>
+          ) : null}
 
           <div className="qr-box">
             <QRCodeSVG value={currentDriver ? `fila-carregamento://driver/${currentDriver.id}` : 'fila-carregamento://home'} size={120} />
@@ -280,7 +297,9 @@ function App() {
                     <tr>
                       <th>POS</th>
                       <th>MOTORISTA</th>
+                      <th>ENTRADA</th>
                       <th>PLACA</th>
+                      <th>TELEFONE</th>
                       <th>TEMPO</th>
                     </tr>
                   </thead>
@@ -289,7 +308,9 @@ function App() {
                       <tr key={driver.id}>
                         <td>{driver.position}</td>
                         <td>{driver.name}</td>
+                        <td>{formatDateTime(driver.joinedAt)}</td>
                         <td>{driver.plate}</td>
+                        <td><a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a></td>
                         <td>{formatMinutes(driver.waitingMinutes)}</td>
                       </tr>
                     ))}

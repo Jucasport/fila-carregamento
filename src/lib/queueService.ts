@@ -29,6 +29,7 @@ export async function getQueueData() {
     position: entry.position ?? 0,
     waitingMinutes: Number(entry.estimated_wait_minutes ?? 0),
     estimatedMinutes: Number(entry.estimated_wait_minutes ?? 0),
+    joinedAt: entry.joined_at,
   }))
 }
 
@@ -83,6 +84,29 @@ export async function addDriverToQueue(driver: Driver) {
   if (error) throw error
 
   return driver
+}
+
+export async function markDriverLoaded(plate: string) {
+  if (!supabase) return
+
+  const { data: driver, error: driverError } = await supabase
+    .from('drivers')
+    .select('id')
+    .eq('plate', plate)
+    .single()
+
+  if (driverError) throw driverError
+
+  const { error } = await supabase
+    .from('queue_entries')
+    .update({
+      status: 'CARREGADO',
+      loading_finished_at: new Date().toISOString(),
+    })
+    .eq('driver_id', driver.id)
+    .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
+
+  if (error) throw error
 }
 
 export async function callNextDriver() {

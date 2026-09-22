@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { addDriverToQueue, callNextDriver, getQueueData } from '../lib/queueService'
+import { addDriverToQueue, callNextDriver, getQueueData, markDriverLoaded } from '../lib/queueService'
 import type { Driver } from '../types/queue'
 
 const mockQueue: Driver[] = [
@@ -101,5 +101,18 @@ export function useQueue() {
     return true
   }
 
-  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext }
+  const markLoaded = async (plate: string) => {
+    try {
+      await markDriverLoaded(plate)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível finalizar o carregamento.')
+      return false
+    }
+
+    setDrivers((current) => current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase()))
+    localStorage.removeItem('fila-carregamento:driver-plate')
+    return true
+  }
+
+  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext, markLoaded }
 }

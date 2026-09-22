@@ -17,6 +17,7 @@ export type Driver = {
   position: number
   waitingMinutes: number
   estimatedMinutes: number
+  joinedAt?: string
 }
 
 export type QueueEntry = {
