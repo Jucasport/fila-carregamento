@@ -32,6 +32,7 @@ function App() {
   const [adminPassword, setAdminPassword] = useState('admin123')
   const [adminLoggedIn, setAdminLoggedIn] = useState(false)
   const [adminMessage, setAdminMessage] = useState('')
+  const [entryMessage, setEntryMessage] = useState('')
 
   const currentDriver = joinedDriver ?? drivers[0]
 
@@ -45,7 +46,14 @@ function App() {
   }, [drivers])
 
   const handleJoinQueue = async () => {
-    if (!name.trim() || !plate.trim() || !phone.trim()) {
+    const missingFields = [
+      !name.trim() ? 'nome do motorista' : '',
+      !plate.trim() ? 'placa do caminhão' : '',
+      !phone.trim() ? 'telefone' : '',
+    ].filter(Boolean)
+
+    if (missingFields.length > 0) {
+      setEntryMessage(`Preencha os campos obrigatórios: ${missingFields.join(', ')}.`)
       return
     }
 
@@ -73,6 +81,7 @@ function App() {
     const added = await addDriver(newDriver)
     if (!added) return
 
+    setEntryMessage('Motorista adicionado à fila com sucesso.')
     setJoinedDriver(newDriver)
     setName('')
     setPlate('')
@@ -121,28 +130,29 @@ function App() {
           <div className="form-grid">
             <label>
               <span>Nome do motorista</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex: João Silva" />
+              <input required value={name} onChange={(event) => setName(event.target.value.toUpperCase())} placeholder="EX: JOÃO SILVA" />
             </label>
 
             <label>
               <span>Placa do caminhão</span>
-              <input value={plate} onChange={(event) => setPlate(event.target.value)} placeholder="ABC1D23" />
+              <input required value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" />
             </label>
 
             <label>
               <span>Telefone</span>
-              <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(81) 99999-9999" />
+              <input required value={phone} onChange={(event) => setPhone(event.target.value.toUpperCase())} placeholder="(81) 99999-9999" />
             </label>
 
             <label>
               <span>Transportadora</span>
-              <input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Opcional" />
+              <input value={carrier} onChange={(event) => setCarrier(event.target.value.toUpperCase())} placeholder="OPCIONAL" />
             </label>
           </div>
 
           <button className="primary-button" onClick={handleJoinQueue}>
             ENTRAR NA FILA
           </button>
+          {entryMessage ? <p className="admin-message">{entryMessage}</p> : null}
           {errorMessage ? <p className="admin-message">{errorMessage}</p> : null}
         </section>
 
