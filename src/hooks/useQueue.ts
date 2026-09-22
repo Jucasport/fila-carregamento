@@ -12,6 +12,7 @@ const mockQueue: Driver[] = [
 export function useQueue() {
   const [drivers, setDrivers] = useState<Driver[]>(mockQueue)
   const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     if (!supabase) {
@@ -51,7 +52,8 @@ export function useQueue() {
   const addDriver = async (driver: Driver) => {
     try {
       await addDriverToQueue(driver)
-    } catch {
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível entrar na fila.')
       return false
     }
 
@@ -60,6 +62,7 @@ export function useQueue() {
       if (exists) return current
       return [...current, { ...driver, position: current.length + 1 }]
     })
+    setErrorMessage('')
 
     return true
   }
@@ -67,7 +70,8 @@ export function useQueue() {
   const callNext = async () => {
     try {
       await callNextDriver()
-    } catch {
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível chamar o próximo motorista.')
       return false
     }
 
@@ -84,5 +88,5 @@ export function useQueue() {
     return true
   }
 
-  return { drivers, loading, setDrivers, addDriver, callNext }
+  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext }
 }

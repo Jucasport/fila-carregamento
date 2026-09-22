@@ -22,7 +22,7 @@ function formatMinutes(totalMinutes: number) {
 }
 
 function App() {
-  const { drivers, addDriver, callNext } = useQueue()
+  const { drivers, addDriver, callNext, errorMessage } = useQueue()
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
@@ -143,6 +143,7 @@ function App() {
           <button className="primary-button" onClick={handleJoinQueue}>
             ENTRAR NA FILA
           </button>
+          {errorMessage ? <p className="admin-message">{errorMessage}</p> : null}
         </section>
 
         <section className="card driver-card">

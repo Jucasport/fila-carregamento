@@ -63,7 +63,7 @@ export async function addDriverToQueue(driver: Driver) {
     .select('id')
     .order('created_at', { ascending: true })
     .limit(1)
-    .maybeSingle()
+    .single()
 
   if (queueError) throw queueError
   if (!queueData) throw new Error('Nenhuma fila configurada no Supabase.')
