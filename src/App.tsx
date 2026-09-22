@@ -1,18 +1,10 @@
 import { AlertTriangle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, ShieldCheck, Truck, User } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
 import { signInAdmin } from './lib/queueService'
 import type { Driver } from './types/queue'
 import './App.css'
-
-const queueSeed: Driver[] = [
-  { id: '1', name: 'João', plate: 'ABC1234', phone: '(81) 99999-0001', company: 'Transporte Norte', status: 'AGUARDANDO', position: 1, waitingMinutes: 95, estimatedMinutes: 115 },
-  { id: '2', name: 'Carlos', plate: 'DEF5678', phone: '(81) 99999-0002', company: 'Logitrans', status: 'AGUARDANDO', position: 2, waitingMinutes: 120, estimatedMinutes: 150 },
-  { id: '3', name: 'Pedro', plate: 'GHI9012', phone: '(81) 99999-0003', company: 'Frota Brasil', status: 'AGUARDANDO', position: 3, waitingMinutes: 155, estimatedMinutes: 180 },
-  { id: '4', name: 'José', plate: 'JKL3456', phone: '(81) 99999-0004', company: 'Rota Express', status: 'AGUARDANDO', position: 4, waitingMinutes: 180, estimatedMinutes: 210 },
-  { id: '5', name: 'Marcos', plate: 'MNO7890', phone: '(81) 99999-0005', company: 'Carga Forte', status: 'AGUARDANDO', position: 5, waitingMinutes: 220, estimatedMinutes: 240 },
-]
 
 function formatMinutes(totalMinutes: number) {
   if (totalMinutes < 60) return `${totalMinutes}min`
@@ -27,7 +19,7 @@ function App() {
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
   const [carrier, setCarrier] = useState('')
-  const [joinedDriver, setJoinedDriver] = useState<Driver | null>(queueSeed[0])
+  const [joinedDriver, setJoinedDriver] = useState<Driver | null>(null)
   const [adminEmail, setAdminEmail] = useState('admin@fila.com')
   const [adminPassword, setAdminPassword] = useState('admin123')
   const [adminLoggedIn, setAdminLoggedIn] = useState(false)
@@ -35,6 +27,17 @@ function App() {
   const [entryMessage, setEntryMessage] = useState('')
 
   const currentDriver = joinedDriver ?? drivers[0]
+
+  useEffect(() => {
+    if (joinedDriver || drivers.length === 0) return
+
+    const savedPlate = localStorage.getItem('fila-carregamento:driver-plate')
+    const savedDriver = savedPlate
+      ? drivers.find((driver) => driver.plate.toUpperCase() === savedPlate.toUpperCase())
+      : undefined
+
+    setJoinedDriver(savedDriver ?? drivers[0])
+  }, [drivers, joinedDriver])
 
   const queueStats = useMemo(() => {
     const waiting = drivers.filter((driver) => driver.status === 'AGUARDANDO').length
@@ -69,6 +72,7 @@ function App() {
       ].filter(Boolean)
       setEntryMessage(`Já existe um motorista com este ${duplicateFields.join(' e ')} na fila.`)
       setJoinedDriver(existingByPlate ?? existingByName ?? null)
+      localStorage.setItem('fila-carregamento:driver-plate', (existingByPlate ?? existingByName)?.plate ?? normalizedPlate)
       return
     }
 
@@ -89,6 +93,7 @@ function App() {
 
     setEntryMessage('Motorista adicionado à fila com sucesso.')
     setJoinedDriver(newDriver)
+    localStorage.setItem('fila-carregamento:driver-plate', newDriver.plate)
     setName('')
     setPlate('')
     setPhone('')

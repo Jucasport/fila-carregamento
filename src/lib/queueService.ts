@@ -16,7 +16,8 @@ export async function getQueueData() {
     .not('status', 'in', '(CARREGADO,CANCELADO,AUSENTE)')
     .order('position', { ascending: true })
 
-  if (error || !data) return demoQueue
+  if (error) throw error
+  if (!data) return []
 
   return data.map((entry: any) => ({
     id: String(entry.driver_id ?? entry.id),

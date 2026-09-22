@@ -9,8 +9,19 @@ const mockQueue: Driver[] = [
   { id: '3', name: 'Pedro', plate: 'GHI9012', phone: '(81) 99999-0003', company: 'Frota Brasil', status: 'AGUARDANDO', position: 3, waitingMinutes: 155, estimatedMinutes: 180 },
 ]
 
+const queueCacheKey = 'fila-carregamento:queue-cache'
+
+function readCachedQueue() {
+  try {
+    const cached = localStorage.getItem(queueCacheKey)
+    return cached ? JSON.parse(cached) as Driver[] : mockQueue
+  } catch {
+    return mockQueue
+  }
+}
+
 export function useQueue() {
-  const [drivers, setDrivers] = useState<Driver[]>(mockQueue)
+  const [drivers, setDrivers] = useState<Driver[]>(readCachedQueue)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -27,8 +38,9 @@ export function useQueue() {
       try {
         const nextDrivers = await getQueueData()
         setDrivers(nextDrivers)
+        localStorage.setItem(queueCacheKey, JSON.stringify(nextDrivers))
       } catch {
-        setDrivers(mockQueue)
+        setDrivers(readCachedQueue())
       } finally {
         setLoading(false)
       }
@@ -62,6 +74,7 @@ export function useQueue() {
       if (exists) return current
       return [...current, { ...driver, position: current.length + 1 }]
     })
+    localStorage.setItem(queueCacheKey, JSON.stringify([...drivers, { ...driver, position: drivers.length + 1 }]))
     setErrorMessage('')
 
     return true
