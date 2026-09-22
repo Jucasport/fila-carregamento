@@ -58,11 +58,17 @@ function App() {
     }
 
     const normalizedPlate = plate.trim().toUpperCase()
-    const exists = drivers.some((driver) => driver.plate.toUpperCase() === normalizedPlate)
+    const normalizedName = name.trim().toUpperCase()
+    const existingByPlate = drivers.find((driver) => driver.plate.toUpperCase() === normalizedPlate)
+    const existingByName = drivers.find((driver) => driver.name.trim().toUpperCase() === normalizedName)
 
-    if (exists) {
-      const existing = drivers.find((driver) => driver.plate.toUpperCase() === normalizedPlate)
-      setJoinedDriver(existing ?? null)
+    if (existingByPlate || existingByName) {
+      const duplicateFields = [
+        existingByName ? 'nome' : '',
+        existingByPlate ? 'placa' : '',
+      ].filter(Boolean)
+      setEntryMessage(`Já existe um motorista com este ${duplicateFields.join(' e ')} na fila.`)
+      setJoinedDriver(existingByPlate ?? existingByName ?? null)
       return
     }
 
