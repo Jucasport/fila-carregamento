@@ -280,3 +280,48 @@ export async function signInAdmin(email: string, password: string) {
 
   return { ok: true, message: 'Administrador autenticado com sucesso.' }
 }
+
+export async function signInDriver(plate: string, phone: string) {
+  if (!supabase) return { ok: false, message: 'Banco não configurado.' as const }
+
+  const { data: driver, error: driverError } = await supabase
+    .from('drivers')
+    .select('id, name, plate, phone, carrier, truck_type')
+    .ilike('plate', plate.trim().toUpperCase())
+    .maybeSingle()
+
+  if (driverError) throw driverError
+  if (!driver || driver.phone.replace(/\D/g, '') !== phone.replace(/\D/g, '')) {
+    return { ok: false, message: 'Placa ou telefone não conferem.' as const }
+  }
+
+  const { data: entry, error: entryError } = await supabase
+    .from('queue_entries')
+    .select('id, position, status, joined_at, estimated_wait_minutes')
+    .eq('driver_id', driver.id)
+    .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
+    .order('joined_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (entryError) throw entryError
+  if (!entry) return { ok: false, message: 'Este motorista não está em uma fila ativa.' as const }
+
+  return {
+    ok: true,
+    message: 'Motorista autenticado com sucesso.',
+    driver: {
+      id: driver.id,
+      name: driver.name,
+      plate: driver.plate,
+      phone: driver.phone,
+      company: driver.carrier,
+      truckType: driver.truck_type,
+      status: entry.status as QueueStatus,
+      position: entry.position,
+      waitingMinutes: Number(entry.estimated_wait_minutes ?? 0),
+      estimatedMinutes: Number(entry.estimated_wait_minutes ?? 0),
+      joinedAt: entry.joined_at,
+    } satisfies Driver,
+  }
+}

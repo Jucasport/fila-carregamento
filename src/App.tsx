@@ -1,7 +1,7 @@
-import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, MessageCircle, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, Clock3, Gauge, MapPinned, MessageCircle, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
-import { signInAdmin } from './lib/queueService'
+import { signInAdmin, signInDriver } from './lib/queueService'
 import type { Driver } from './types/queue'
 import './App.css'
 
@@ -27,11 +27,16 @@ function whatsappDigits(value: string) {
 }
 
 function App() {
-  const { drivers, addDriver, callNext, markLoaded, removeDriver, refreshQueue, loading, errorMessage } = useQueue()
+  const { drivers, addDriver, callNext, removeDriver, refreshQueue, loading, errorMessage } = useQueue()
+  const [accessMode, setAccessMode] = useState<'driver' | 'admin'>('driver')
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
   const [truckType, setTruckType] = useState('')
+  const [driverLoginPlate, setDriverLoginPlate] = useState('')
+  const [driverLoginPhone, setDriverLoginPhone] = useState('')
+  const [driverLoggedIn, setDriverLoggedIn] = useState(false)
+  const [driverMessage, setDriverMessage] = useState('')
   const [joinedDriver, setJoinedDriver] = useState<Driver | null>(null)
   const [adminEmail, setAdminEmail] = useState('admin@fila.com')
   const [adminPassword, setAdminPassword] = useState('')
@@ -39,18 +44,7 @@ function App() {
   const [adminMessage, setAdminMessage] = useState('')
   const [entryMessage, setEntryMessage] = useState('')
 
-  const currentDriver = joinedDriver ?? drivers[0]
-
-  useEffect(() => {
-    if (joinedDriver || drivers.length === 0) return
-
-    const savedPlate = localStorage.getItem('fila-carregamento:driver-plate')
-    const savedDriver = savedPlate
-      ? drivers.find((driver) => driver.plate.toUpperCase() === savedPlate.toUpperCase())
-      : undefined
-
-    setJoinedDriver(savedDriver ?? drivers[0])
-  }, [drivers, joinedDriver])
+  const currentDriver = driverLoggedIn ? joinedDriver : null
 
   const queueStats = useMemo(() => {
     const waiting = drivers.filter((driver) => driver.status === 'AGUARDANDO').length
@@ -93,6 +87,7 @@ function App() {
 
     setEntryMessage('Motorista adicionado à fila com sucesso.')
     setJoinedDriver(newDriver)
+    setDriverLoggedIn(true)
     localStorage.setItem('fila-carregamento:driver-plate', newDriver.plate)
     setName('')
     setPlate('')
@@ -100,18 +95,37 @@ function App() {
     setTruckType('')
   }
 
-  const handleNext = async () => {
-    await callNext()
+  const handleDriverLogin = async () => {
+    if (!driverLoginPlate.trim() || !driverLoginPhone.trim()) {
+      setDriverMessage('Informe a placa e o telefone cadastrados.')
+      return
+    }
+
+    try {
+      const result = await signInDriver(driverLoginPlate, driverLoginPhone)
+      if (!result.ok || !result.driver) {
+        setDriverMessage(result.message)
+        return
+      }
+
+      setJoinedDriver(result.driver)
+      setDriverLoggedIn(true)
+      setDriverMessage(result.message)
+      localStorage.setItem('fila-carregamento:driver-plate', result.driver.plate)
+    } catch (error) {
+      setDriverMessage(error instanceof Error ? error.message : 'Não foi possível acessar a fila do motorista.')
+    }
   }
 
-  const handleMarkLoaded = async () => {
-    if (!currentDriver) return
+  const handleDriverLogout = () => {
+    setDriverLoggedIn(false)
+    setJoinedDriver(null)
+    setDriverMessage('')
+    localStorage.removeItem('fila-carregamento:driver-plate')
+  }
 
-    const marked = await markLoaded(currentDriver.plate)
-    if (marked) {
-      setJoinedDriver(null)
-      setEntryMessage('Carregamento concluído. Você saiu da fila.')
-    }
+  const handleNext = async () => {
+    await callNext()
   }
 
   const handleAdminLogin = async () => {
@@ -138,46 +152,49 @@ function App() {
           <p className="eyebrow">Logística</p>
           <h1>Fila de Carregamento</h1>
         </div>
-        <div className="badge">PWA / Mobile</div>
+        <div className="access-switch" role="tablist" aria-label="Área de acesso">
+          <button className={accessMode === 'driver' ? 'access-tab active' : 'access-tab'} onClick={() => setAccessMode('driver')}>Motorista</button>
+          <button className={accessMode === 'admin' ? 'access-tab active' : 'access-tab'} onClick={() => setAccessMode('admin')}>Administrador</button>
+        </div>
       </header>
 
       <main className="layout">
-        <section className="card entry-card">
+        {accessMode === 'driver' && !driverLoggedIn ? <section className="card entry-card">
           <div className="section-header">
             <Truck size={22} />
-            <h2>Entrar na fila</h2>
+            <h2>Acesso do motorista</h2>
           </div>
 
           <div className="form-grid">
             <label>
-              <span>Nome do motorista</span>
-              <input required value={name} onChange={(event) => setName(event.target.value.toUpperCase())} placeholder="EX: JOÃO SILVA" />
+              <span>Placa cadastrada</span>
+              <input value={driverLoginPlate} onChange={(event) => setDriverLoginPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" />
             </label>
 
             <label>
-              <span>Placa do caminhão</span>
-              <input required value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" />
-            </label>
-
-            <label>
-              <span>Telefone</span>
-              <input required value={phone} onChange={(event) => setPhone(event.target.value.toUpperCase())} placeholder="(81) 99999-9999" />
-            </label>
-
-            <label>
-              <span>Tipo de caminhão</span>
-              <input value={truckType} onChange={(event) => setTruckType(event.target.value.toUpperCase())} placeholder="EX: CARRETA BAÚ" />
+              <span>Telefone cadastrado</span>
+              <input value={driverLoginPhone} onChange={(event) => setDriverLoginPhone(event.target.value)} placeholder="(81) 99999-9999" />
             </label>
           </div>
 
+          <button className="primary-button" onClick={() => void handleDriverLogin()}>VER MINHA POSIÇÃO</button>
+          <p className="access-help">Ainda não está cadastrado?</p>
+          <div className="form-grid">
+            <label><span>Nome do motorista</span><input value={name} onChange={(event) => setName(event.target.value.toUpperCase())} placeholder="EX: JOÃO SILVA" /></label>
+            <label><span>Placa do caminhão</span><input value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" /></label>
+            <label><span>Telefone</span><input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(81) 99999-9999" /></label>
+            <label><span>Tipo de caminhão</span><input value={truckType} onChange={(event) => setTruckType(event.target.value.toUpperCase())} placeholder="EX: CARRETA BAÚ" /></label>
+          </div>
+
           <button className="primary-button" onClick={handleJoinQueue}>
-            ENTRAR NA FILA
+            CADASTRAR E ENTRAR NA FILA
           </button>
+          {driverMessage ? <p className="admin-message">{driverMessage}</p> : null}
           {entryMessage ? <p className="admin-message">{entryMessage}</p> : null}
           {errorMessage ? <p className="admin-message">{errorMessage}</p> : null}
-        </section>
+        </section> : null}
 
-        <section className="card driver-card">
+        {accessMode === 'driver' && driverLoggedIn ? <section className="card driver-card">
           <div className="driver-header">
             <div>
               <p className="eyebrow accent">Olá, {currentDriver?.name || 'motorista'}</p>
@@ -240,13 +257,8 @@ function App() {
             </div>
           </div>
 
-          {currentDriver && !['CARREGADO', 'CANCELADO', 'AUSENTE'].includes(currentDriver.status) ? (
-            <button className="secondary-button" onClick={() => void handleMarkLoaded()}>
-              <CheckCircle size={18} /> MARCAR COMO CARREGADO
-            </button>
-          ) : null}
-
-        </section>
+          <button className="text-button" onClick={handleDriverLogout}>SAIR DO ACESSO DO MOTORISTA</button>
+        </section> : null}
 
         <section className="card public-queue-card">
           <div className="section-header">
@@ -296,7 +308,7 @@ function App() {
           </div>
         </section>
 
-        <section className="card admin-card">
+        {accessMode === 'admin' ? <section className="card admin-card">
           {!adminLoggedIn ? (
             <>
               <div className="section-header">
@@ -389,7 +401,7 @@ function App() {
               </div>
             </>
           )}
-        </section>
+        </section> : null}
       </main>
     </div>
   )

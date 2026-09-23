@@ -42,6 +42,30 @@
   font-weight: 700;
 }
 
+.access-switch {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.82);
+}
+
+.access-tab {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: transparent;
+  color: #94a3b8;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.access-tab.active {
+  background: #f59e0b;
+  color: #111827;
+}
+
 .layout {
   max-width: 1180px;
   margin: 0 auto;
@@ -146,6 +170,23 @@ input {
   margin-top: 0;
   padding: 10px 14px;
   font-size: 12px;
+}
+
+.access-help {
+  margin: 2px 0 -2px;
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.text-button {
+  border: 0;
+  background: transparent;
+  color: #fcd34d;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .secondary-button {
@@ -352,6 +393,14 @@ th {
   .section-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .access-switch {
+    width: 100%;
+  }
+
+  .access-tab {
+    flex: 1;
   }
 
   .refresh-button {
