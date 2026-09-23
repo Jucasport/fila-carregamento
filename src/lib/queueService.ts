@@ -157,15 +157,18 @@ export async function addDriverToQueue(driver: Driver) {
   if (!driverData) throw new Error('Não foi possível localizar o motorista.')
 
   if (driver.truckType && existingDriver) {
-    const { error: updateDriverError } = await supabase
+    const { data: updatedDriver, error: updateDriverError } = await supabase
       .from('drivers')
       .update({ truck_type: driver.truckType })
       .eq('id', driverData.id)
+      .select('id, truck_type')
+      .maybeSingle()
 
     if (updateDriverError?.code === 'PGRST204') {
       throw new Error('O banco ainda não possui a coluna truck_type. Execute o comando de migração do Supabase antes de cadastrar o tipo de caminhão.')
     }
     if (updateDriverError) throw updateDriverError
+    if (!updatedDriver?.truck_type) throw new Error('Não foi possível salvar o tipo de caminhão no banco.')
   }
 
   const { data: queueData, error: queueError } = await supabase
@@ -378,7 +381,13 @@ export async function signInDriver(plate: string, password: string) {
 
 export async function changeDriverPassword(driverId: string, password: string) {
   if (!supabase) return { ok: false, message: 'Banco não configurado.' }
-  const { error } = await supabase.from('drivers').update({ password_hash: await hashPassword(password), must_change_password: false }).eq('id', driverId)
+  const { data, error } = await supabase
+    .from('drivers')
+    .update({ password_hash: await hashPassword(password), must_change_password: false })
+    .eq('id', driverId)
+    .select('id, must_change_password')
+    .maybeSingle()
   if (error) throw error
+  if (!data || data.must_change_password) throw new Error('A senha não foi gravada. Verifique a política de atualização da tabela drivers no Supabase.')
   return { ok: true, message: 'Senha alterada com sucesso.' }
 }
