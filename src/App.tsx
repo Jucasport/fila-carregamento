@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useMemo, useState } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { useQueue } from './hooks/useQueue'
 import { signInAdmin } from './lib/queueService'
 import type { Driver } from './types/queue'
@@ -127,7 +128,9 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <>
+      <Analytics />
+      <div className="app-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">Logística</p>
@@ -384,7 +387,8 @@ function App() {
           )}
         </section>
       </main>
-    </div>
+      </div>
+    </>
   )
 }
 
