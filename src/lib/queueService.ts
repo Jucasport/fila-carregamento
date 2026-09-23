@@ -36,7 +36,10 @@ export async function getQueueData() {
 }
 
 function mapQueueEntries(entries: any[]) {
-  return entries.map((entry: any) => ({
+  return entries
+    .slice()
+    .sort((first: any, second: any) => (first.position ?? 0) - (second.position ?? 0) || String(first.joined_at ?? '').localeCompare(String(second.joined_at ?? '')))
+    .map((entry: any, index: number) => ({
     id: String(entry.driver_id ?? entry.id),
     name: entry.driver?.name ?? 'Motorista',
     plate: entry.driver?.plate ?? 'SEM PLACA',
@@ -44,11 +47,35 @@ function mapQueueEntries(entries: any[]) {
     company: entry.driver?.carrier ?? entry.driver?.company,
     truckType: entry.driver?.truck_type,
     status: (entry.status ?? 'AGUARDANDO') as QueueStatus,
-    position: entry.position ?? 0,
+    position: index + 1,
     waitingMinutes: Number(entry.estimated_wait_minutes ?? 0),
     estimatedMinutes: Number(entry.estimated_wait_minutes ?? 0),
     joinedAt: entry.joined_at,
-  }))
+    }))
+}
+
+async function normalizeQueuePositions(queueId: string) {
+  if (!supabase) return
+
+  const activeStatuses = ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO']
+  const { data: entries, error } = await supabase
+    .from('queue_entries')
+    .select('id')
+    .eq('queue_id', queueId)
+    .in('status', activeStatuses)
+    .order('position', { ascending: true })
+    .order('joined_at', { ascending: true })
+
+  if (error) throw error
+
+  for (const [index, entry] of (entries ?? []).entries()) {
+    const { error: updateError } = await supabase
+      .from('queue_entries')
+      .update({ position: index + 1, updated_at: new Date().toISOString() })
+      .eq('id', entry.id)
+
+    if (updateError) throw updateError
+  }
 }
 
 export async function addDriverToQueue(driver: Driver) {
@@ -127,11 +154,21 @@ export async function addDriverToQueue(driver: Driver) {
   if (activeEntryError) throw activeEntryError
   if (activeEntry) throw new Error('Já existe um motorista com esta placa na fila.')
 
+  await normalizeQueuePositions(queueData.id)
+
+  const { count: activeCount, error: activeCountError } = await supabase
+    .from('queue_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('queue_id', queueData.id)
+    .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
+
+  if (activeCountError) throw activeCountError
+
   const item = {
     driver_id: driverData.id,
     queue_id: queueData.id,
     status: 'AGUARDANDO',
-    position: driver.position,
+    position: (activeCount ?? 0) + 1,
     joined_at: new Date().toISOString(),
     estimated_wait_minutes: driver.estimatedMinutes,
   }
@@ -139,6 +176,7 @@ export async function addDriverToQueue(driver: Driver) {
   const { error } = await supabase.from('queue_entries').insert(item)
 
   if (error) throw error
+  await normalizeQueuePositions(queueData.id)
 
   return driver
 }
@@ -173,24 +211,7 @@ export async function removeDriverFromQueue(plate: string) {
 
   if (error) throw error
 
-  const { data: remainingEntries, error: remainingError } = await supabase
-    .from('queue_entries')
-    .select('id')
-    .eq('queue_id', entry.queue_id)
-    .in('status', activeStatuses)
-    .order('position', { ascending: true })
-    .order('joined_at', { ascending: true })
-
-  if (remainingError) throw remainingError
-
-  for (const [index, remainingEntry] of (remainingEntries ?? []).entries()) {
-    const { error: positionError } = await supabase
-      .from('queue_entries')
-      .update({ position: index + 1, updated_at: new Date().toISOString() })
-      .eq('id', remainingEntry.id)
-
-    if (positionError) throw positionError
-  }
+  await normalizeQueuePositions(entry.queue_id)
 }
 
 export async function markDriverLoaded(plate: string) {
@@ -214,6 +235,16 @@ export async function markDriverLoaded(plate: string) {
     .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
 
   if (error) throw error
+
+  const { data: queueEntry } = await supabase
+    .from('queue_entries')
+    .select('queue_id')
+    .eq('driver_id', driver.id)
+    .order('joined_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (queueEntry) await normalizeQueuePositions(queueEntry.queue_id)
 }
 
 export async function callNextDriver() {
@@ -224,6 +255,16 @@ export async function callNextDriver() {
   const { error } = await supabase.rpc('call_next_driver')
 
   if (error) throw error
+
+  const { data: queueData, error: queueError } = await supabase
+    .from('queues')
+    .select('id')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single()
+
+  if (queueError) throw queueError
+  await normalizeQueuePositions(queueData.id)
 }
 
 export async function signInAdmin(email: string, password: string) {

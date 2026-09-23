@@ -115,7 +115,10 @@ export function useQueue() {
       return false
     }
 
-    const nextQueue = [...drivers, { ...driver, position: drivers.length + 1 }]
+    const nextQueue = [...drivers, { ...driver, position: drivers.length + 1 }].map((queueDriver, index) => ({
+      ...queueDriver,
+      position: index + 1,
+    }))
     setDrivers(nextQueue)
     localStorage.setItem(queueCacheKey, JSON.stringify(nextQueue))
     setErrorMessage('')
@@ -145,7 +148,7 @@ export function useQueue() {
 
       return current.map((driver, index) => ({
         ...driver,
-        position: index === 0 ? 1 : index,
+        position: index + 1,
         status: index === 0 ? 'CHAMADO' : index === 1 ? 'PRÓXIMO' : 'AGUARDANDO',
       }))
     })
@@ -162,7 +165,9 @@ export function useQueue() {
     }
 
     setDrivers((current) => {
-      const nextQueue = current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase())
+      const nextQueue = current
+        .filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase())
+        .map((driver, index) => ({ ...driver, position: index + 1 }))
       localStorage.setItem(queueCacheKey, JSON.stringify(nextQueue))
       return nextQueue
     })
@@ -178,7 +183,9 @@ export function useQueue() {
       return false
     }
 
-    setDrivers((current) => current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase()))
+    setDrivers((current) => current
+      .filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase())
+      .map((driver, index) => ({ ...driver, position: index + 1 })))
     if (supabase) {
       try {
         const refreshedQueue = await getQueueData()
