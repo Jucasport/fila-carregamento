@@ -13,14 +13,22 @@ export async function getQueueData() {
     .order('position', { ascending: true })
 
   if (error) {
-    const fallback = await supabase
+    const fallbackWithTruckType = await supabase
+      .from('queue_entries')
+      .select('*, driver:drivers(name, plate, phone, carrier, truck_type)')
+      .not('status', 'in', '(CARREGADO,CANCELADO,AUSENTE)')
+      .order('position', { ascending: true })
+
+    if (!fallbackWithTruckType.error) return mapQueueEntries(fallbackWithTruckType.data ?? [])
+
+    const legacyFallback = await supabase
       .from('queue_entries')
       .select('*, driver:drivers(name, plate, phone, carrier)')
       .not('status', 'in', '(CARREGADO,CANCELADO,AUSENTE)')
       .order('position', { ascending: true })
 
-    if (fallback.error) throw fallback.error
-    return mapQueueEntries(fallback.data ?? [])
+    if (legacyFallback.error) throw legacyFallback.error
+    return mapQueueEntries(legacyFallback.data ?? [])
   }
   if (!data) return []
 
@@ -69,6 +77,10 @@ export async function addDriverToQueue(driver: Driver) {
     let { data: createdDriver, error: driverError } = await supabase.from('drivers').insert(driverPayload).select('id').single()
 
     if (driverError?.code === 'PGRST204' && driverError.message.includes("'truck_type'")) {
+      if (driver.truckType) {
+        throw new Error('O banco ainda não possui a coluna truck_type. Execute o comando de migração do Supabase antes de cadastrar o tipo de caminhão.')
+      }
+
       const { truck_type: _truckType, ...legacyPayload } = driverPayload
       const retry = await supabase.from('drivers').insert(legacyPayload).select('id').single()
       createdDriver = retry.data
@@ -80,6 +92,18 @@ export async function addDriverToQueue(driver: Driver) {
   }
 
   if (!driverData) throw new Error('Não foi possível localizar o motorista.')
+
+  if (driver.truckType && existingDriver) {
+    const { error: updateDriverError } = await supabase
+      .from('drivers')
+      .update({ truck_type: driver.truckType })
+      .eq('id', driverData.id)
+
+    if (updateDriverError?.code === 'PGRST204') {
+      throw new Error('O banco ainda não possui a coluna truck_type. Execute o comando de migração do Supabase antes de cadastrar o tipo de caminhão.')
+    }
+    if (updateDriverError) throw updateDriverError
+  }
 
   const { data: queueData, error: queueError } = await supabase
     .from('queues')
