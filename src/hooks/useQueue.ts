@@ -120,7 +120,11 @@ export function useQueue() {
       return false
     }
 
-    setDrivers((current) => current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase()))
+    setDrivers((current) => {
+      const nextQueue = current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase())
+      localStorage.setItem(queueCacheKey, JSON.stringify(nextQueue))
+      return nextQueue
+    })
     localStorage.removeItem('fila-carregamento:driver-plate')
     return true
   }

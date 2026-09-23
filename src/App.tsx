@@ -113,6 +113,16 @@ function App() {
     await callNext()
   }
 
+  const handleMarkLoaded = async () => {
+    if (!currentDriver) return
+
+    const marked = await markLoaded(currentDriver.plate)
+    if (marked) {
+      setJoinedDriver(null)
+      setEntryMessage('Carregamento concluído. Você saiu da fila.')
+    }
+  }
+
   const handleAdminLogin = async () => {
     if (!adminEmail.trim() || !adminPassword.trim()) {
       setAdminMessage('Informe e-mail e senha para acessar o painel.')
@@ -239,7 +249,7 @@ function App() {
           </div>
 
           {currentDriver && !['CARREGADO', 'CANCELADO', 'AUSENTE'].includes(currentDriver.status) ? (
-            <button className="secondary-button" onClick={() => void markLoaded(currentDriver.plate)}>
+            <button className="secondary-button" onClick={() => void handleMarkLoaded()}>
               <CheckCircle size={18} /> MARCAR COMO CARREGADO
             </button>
           ) : null}
