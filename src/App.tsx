@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, ShieldCheck, Truck, User } from 'lucide-react'
+import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
@@ -19,11 +19,12 @@ function formatDateTime(value?: string) {
 }
 
 function App() {
-  const { drivers, addDriver, callNext, markLoaded, errorMessage } = useQueue()
+  const { drivers, addDriver, callNext, markLoaded, removeDriver, errorMessage } = useQueue()
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
   const [carrier, setCarrier] = useState('')
+  const [truckType, setTruckType] = useState('')
   const [joinedDriver, setJoinedDriver] = useState<Driver | null>(null)
   const [adminEmail, setAdminEmail] = useState('admin@fila.com')
   const [adminPassword, setAdminPassword] = useState('')
@@ -87,6 +88,7 @@ function App() {
       plate: normalizedPlate,
       phone: phone.trim(),
       company: carrier.trim() || undefined,
+      truckType: truckType.trim() || undefined,
       status: 'AGUARDANDO',
       position: drivers.length + 1,
       waitingMinutes: 0,
@@ -104,6 +106,7 @@ function App() {
     setPlate('')
     setPhone('')
     setCarrier('')
+    setTruckType('')
   }
 
   const handleNext = async () => {
@@ -163,6 +166,11 @@ function App() {
             <label>
               <span>Transportadora</span>
               <input value={carrier} onChange={(event) => setCarrier(event.target.value.toUpperCase())} placeholder="OPCIONAL" />
+            </label>
+
+            <label>
+              <span>Tipo de caminhão</span>
+              <input value={truckType} onChange={(event) => setTruckType(event.target.value.toUpperCase())} placeholder="EX: CARRETA BAÚ" />
             </label>
           </div>
 
@@ -270,7 +278,10 @@ function App() {
                     <td><strong>{driver.position}</strong></td>
                     <td>{driver.name}</td>
                     <td>{driver.plate}</td>
-                    <td><a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a></td>
+                    <td>
+                      <a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a>
+                      <small className="truck-type">{driver.truckType || 'Tipo não informado'}</small>
+                    </td>
                   </tr>
                 )) : (
                   <tr>
@@ -338,6 +349,7 @@ function App() {
                       <th>PLACA</th>
                       <th>TELEFONE</th>
                       <th>TEMPO</th>
+                      <th>AÇÃO</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -347,8 +359,22 @@ function App() {
                         <td>{driver.name}</td>
                         <td>{formatDateTime(driver.joinedAt)}</td>
                         <td>{driver.plate}</td>
-                        <td><a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a></td>
+                        <td>
+                          <a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a>
+                          <small className="truck-type">{driver.truckType || 'Tipo não informado'}</small>
+                        </td>
                         <td>{formatMinutes(driver.waitingMinutes)}</td>
+                        <td>
+                          <button
+                            className="remove-button"
+                            onClick={() => {
+                              if (window.confirm(`Remover ${driver.name} da fila?`)) void removeDriver(driver.plate)
+                            }}
+                            title="Remover motorista da fila"
+                          >
+                            <Trash2 size={16} /> REMOVER
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -31,6 +31,7 @@ create table if not exists drivers (
   phone text not null,
   plate text not null,
   carrier text,
+  truck_type text,
   access_code text unique,
   created_at timestamptz default now()
 );
@@ -93,6 +94,8 @@ create table if not exists admin_audit_logs (
 create unique index if not exists drivers_plate_unique on drivers (upper(plate));
 create index if not exists queue_entries_queue_position_idx on queue_entries (queue_id, position);
 create index if not exists queue_entries_status_idx on queue_entries (status);
+
+alter table drivers add column if not exists truck_type text;
 
 create or replace function set_updated_at()
 returns trigger as $$

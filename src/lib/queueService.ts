@@ -12,7 +12,7 @@ export async function getQueueData() {
 
   const { data, error } = await supabase
     .from('queue_entries')
-    .select('*, driver:drivers(name, plate, phone, carrier)')
+    .select('*, driver:drivers(name, plate, phone, carrier, truck_type)')
     .not('status', 'in', '(CARREGADO,CANCELADO,AUSENTE)')
     .order('position', { ascending: true })
 
@@ -25,6 +25,7 @@ export async function getQueueData() {
     plate: entry.driver?.plate ?? 'SEM PLACA',
     phone: entry.driver?.phone ?? '(00) 00000-0000',
     company: entry.driver?.carrier ?? entry.driver?.company,
+    truckType: entry.driver?.truck_type,
     status: (entry.status ?? 'AGUARDANDO') as QueueStatus,
     position: entry.position ?? 0,
     waitingMinutes: Number(entry.estimated_wait_minutes ?? 0),
@@ -54,6 +55,7 @@ export async function addDriverToQueue(driver: Driver) {
       plate: driver.plate,
       phone: driver.phone,
       carrier: driver.company,
+      truck_type: driver.truckType,
     }).select('id').single()
 
     if (driverError) throw driverError
@@ -84,6 +86,26 @@ export async function addDriverToQueue(driver: Driver) {
   if (error) throw error
 
   return driver
+}
+
+export async function removeDriverFromQueue(plate: string) {
+  if (!supabase) return
+
+  const { data: driver, error: driverError } = await supabase
+    .from('drivers')
+    .select('id')
+    .eq('plate', plate)
+    .single()
+
+  if (driverError) throw driverError
+
+  const { error } = await supabase
+    .from('queue_entries')
+    .update({ status: 'CANCELADO' })
+    .eq('driver_id', driver.id)
+    .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
+
+  if (error) throw error
 }
 
 export async function markDriverLoaded(plate: string) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { addDriverToQueue, callNextDriver, getQueueData, markDriverLoaded } from '../lib/queueService'
+import { addDriverToQueue, callNextDriver, getQueueData, markDriverLoaded, removeDriverFromQueue } from '../lib/queueService'
 import type { Driver } from '../types/queue'
 
 const mockQueue: Driver[] = [
@@ -114,5 +114,17 @@ export function useQueue() {
     return true
   }
 
-  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext, markLoaded }
+  const removeDriver = async (plate: string) => {
+    try {
+      await removeDriverFromQueue(plate)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível remover o motorista.')
+      return false
+    }
+
+    setDrivers((current) => current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase()))
+    return true
+  }
+
+  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext, markLoaded, removeDriver }
 }

@@ -264,6 +264,27 @@ a {
   white-space: nowrap;
 }
 
+.truck-type {
+  display: block;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.remove-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

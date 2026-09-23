@@ -13,6 +13,7 @@ export type Driver = {
   plate: string
   phone: string
   company?: string
+  truckType?: string
   status: QueueStatus
   position: number
   waitingMinutes: number
