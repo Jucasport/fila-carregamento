@@ -35,7 +35,6 @@ function App() {
   const [phone, setPhone] = useState('')
   const [truckType, setTruckType] = useState('')
   const [driverLoginPlate, setDriverLoginPlate] = useState('')
-  const [driverLoginPhone, setDriverLoginPhone] = useState('')
   const [driverLoginPassword, setDriverLoginPassword] = useState('')
   const [newDriverPassword, setNewDriverPassword] = useState('')
   const [confirmDriverPassword, setConfirmDriverPassword] = useState('')
@@ -68,7 +67,6 @@ function App() {
       setEntryMessage(result.message)
       if (result.ok) {
         setDriverLoginPlate(plate.trim().toUpperCase())
-        setDriverLoginPhone(phone.trim())
         setDriverLoginPassword(defaultDriverPassword)
         setDriverAccessView('login')
         setName('')
@@ -119,13 +117,13 @@ function App() {
   }
 
   const handleDriverLogin = async () => {
-    if (!driverLoginPlate.trim() || !driverLoginPhone.trim()) {
-      setDriverMessage('Informe a placa e o telefone cadastrados.')
+    if (!driverLoginPlate.trim() || !driverLoginPassword.trim()) {
+      setDriverMessage('Informe a placa e a senha.')
       return
     }
 
     try {
-      const result = await signInDriver(driverLoginPlate, driverLoginPhone, driverLoginPassword)
+      const result = await signInDriver(driverLoginPlate, driverLoginPassword)
       if (!result.ok || !result.driver) {
         setDriverMessage(result.message)
         return
@@ -230,7 +228,6 @@ function App() {
           {!driverLoggedIn && driverAccessView === 'login' ? <>
             <div className="form-grid">
               <label><span>Placa cadastrada</span><input value={driverLoginPlate} onChange={(event) => setDriverLoginPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" /></label>
-              <label><span>Telefone cadastrado</span><input value={driverLoginPhone} onChange={(event) => setDriverLoginPhone(event.target.value)} placeholder="(81) 99999-9999" /></label>
               <label><span>Senha</span><input type="password" value={driverLoginPassword} onChange={(event) => setDriverLoginPassword(event.target.value)} placeholder={defaultDriverPassword} /></label>
             </div>
             <button className="primary-button" onClick={() => void handleDriverLogin()}>ENTRAR</button>

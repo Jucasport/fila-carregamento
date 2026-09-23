@@ -317,7 +317,7 @@ export async function signInAdmin(email: string, password: string) {
   return { ok: true, message: 'Administrador autenticado com sucesso.' }
 }
 
-export async function signInDriver(plate: string, phone: string, password: string) {
+export async function signInDriver(plate: string, password: string) {
   if (!supabase) return { ok: false, message: 'Banco não configurado.' as const }
 
   const { data: driver, error: driverError } = await supabase
@@ -327,9 +327,7 @@ export async function signInDriver(plate: string, phone: string, password: strin
     .maybeSingle()
 
   if (driverError) throw driverError
-  if (!driver || driver.phone.replace(/\D/g, '') !== phone.replace(/\D/g, '')) {
-    return { ok: false, message: 'Placa ou telefone não conferem.' as const }
-  }
+  if (!driver) return { ok: false, message: 'Placa não encontrada.' as const }
 
   if (!driver.password_hash || driver.password_hash !== await hashPassword(password)) {
     return { ok: false, message: 'Senha inválida.' as const }
