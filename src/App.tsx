@@ -67,20 +67,6 @@ function App() {
     }
 
     const normalizedPlate = plate.trim().toUpperCase()
-    const normalizedName = name.trim().toUpperCase()
-    const existingByPlate = drivers.find((driver) => driver.plate.toUpperCase() === normalizedPlate)
-    const existingByName = drivers.find((driver) => driver.name.trim().toUpperCase() === normalizedName)
-
-    if (existingByPlate || existingByName) {
-      const duplicateFields = [
-        existingByName ? 'nome' : '',
-        existingByPlate ? 'placa' : '',
-      ].filter(Boolean)
-      setEntryMessage(`Já existe um motorista com este ${duplicateFields.join(' e ')} na fila.`)
-      setJoinedDriver(existingByPlate ?? existingByName ?? null)
-      localStorage.setItem('fila-carregamento:driver-plate', (existingByPlate ?? existingByName)?.plate ?? normalizedPlate)
-      return
-    }
 
     const newDriver: Driver = {
       id: `driver-${Date.now()}`,

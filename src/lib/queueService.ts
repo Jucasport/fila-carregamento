@@ -59,17 +59,27 @@ export async function addDriverToQueue(driver: Driver) {
   let driverData = existingDriver
 
   if (!driverData) {
-    const { data: createdDriver, error: driverError } = await supabase.from('drivers').insert({
+    const driverPayload = {
       name: driver.name,
       plate: driver.plate,
       phone: driver.phone,
       carrier: driver.company,
       truck_type: driver.truckType,
-    }).select('id').single()
+    }
+    let { data: createdDriver, error: driverError } = await supabase.from('drivers').insert(driverPayload).select('id').single()
+
+    if (driverError?.code === 'PGRST204' && driverError.message.includes("'truck_type'")) {
+      const { truck_type: _truckType, ...legacyPayload } = driverPayload
+      const retry = await supabase.from('drivers').insert(legacyPayload).select('id').single()
+      createdDriver = retry.data
+      driverError = retry.error
+    }
 
     if (driverError) throw driverError
     driverData = createdDriver
   }
+
+  if (!driverData) throw new Error('Não foi possível localizar o motorista.')
 
   const { data: queueData, error: queueError } = await supabase
     .from('queues')
@@ -80,6 +90,18 @@ export async function addDriverToQueue(driver: Driver) {
 
   if (queueError) throw queueError
   if (!queueData) throw new Error('Nenhuma fila configurada no Supabase.')
+
+  const { data: activeEntry, error: activeEntryError } = await supabase
+    .from('queue_entries')
+    .select('id')
+    .eq('queue_id', queueData.id)
+    .eq('driver_id', driverData.id)
+    .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
+    .limit(1)
+    .maybeSingle()
+
+  if (activeEntryError) throw activeEntryError
+  if (activeEntry) throw new Error('Já existe um motorista com esta placa na fila.')
 
   const item = {
     driver_id: driverData.id,
