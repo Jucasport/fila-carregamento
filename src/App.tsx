@@ -181,10 +181,13 @@ function App() {
     const removed = await removeDriver(currentDriver.plate)
     if (!removed) return
 
-    setJoinedDriver(null)
-    setDriverLoggedIn(false)
+    setJoinedDriver({
+      ...currentDriver,
+      position: 0,
+      status: 'CANCELADO',
+    })
     setEntryMessage('Você saiu da fila. As posições foram reorganizadas.')
-    localStorage.removeItem('fila-carregamento:driver-plate')
+    localStorage.setItem('fila-carregamento:driver-plate', currentDriver.plate)
   }
 
   const handleNext = async () => {
