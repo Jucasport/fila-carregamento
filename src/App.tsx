@@ -1,5 +1,4 @@
-import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, MessageCircle, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
 import { signInAdmin } from './lib/queueService'
@@ -16,6 +15,15 @@ function formatMinutes(totalMinutes: number) {
 function formatDateTime(value?: string) {
   if (!value) return 'Não informado'
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+}
+
+function phoneDigits(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function whatsappDigits(value: string) {
+  const digits = phoneDigits(value)
+  return digits.startsWith('55') ? digits : `55${digits.replace(/^0/, '')}`
 }
 
 function App() {
@@ -225,7 +233,13 @@ function App() {
             <div>
               <Phone size={18} />
               <span>Telefone</span>
-              <strong><a href={currentDriver?.phone ? `tel:${currentDriver.phone.replace(/\D/g, '')}` : undefined}>{currentDriver?.phone || '—'}</a></strong>
+              <strong>{currentDriver?.phone || '—'}</strong>
+              {currentDriver?.phone ? (
+                <span className="phone-actions">
+                  <a className="phone-action" href={`tel:${phoneDigits(currentDriver.phone)}`} title="Ligar para o motorista"><Phone size={14} /> Ligar</a>
+                  <a className="phone-action whatsapp-action" href={`https://wa.me/${whatsappDigits(currentDriver.phone)}`} target="_blank" rel="noreferrer" title="Conversar pelo WhatsApp"><MessageCircle size={14} /> WhatsApp</a>
+                </span>
+              ) : null}
             </div>
             <div>
               <Clock3 size={18} />
@@ -240,13 +254,6 @@ function App() {
             </button>
           ) : null}
 
-          <div className="qr-box">
-            <QRCodeSVG value={currentDriver ? `fila-carregamento://driver/${currentDriver.id}` : 'fila-carregamento://home'} size={120} />
-            <div>
-              <p className="eyebrow">Código de acesso</p>
-              <strong>{currentDriver ? `#${String(currentDriver.position).padStart(3, '0')}` : '#000'}</strong>
-            </div>
-          </div>
         </section>
 
         <section className="card public-queue-card">
@@ -279,7 +286,11 @@ function App() {
                     <td>{driver.name}</td>
                     <td>{driver.plate}</td>
                     <td>
-                      <a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a>
+                      <strong className="phone-link">{driver.phone}</strong>
+                      <span className="phone-actions">
+                        <a className="phone-action" href={`tel:${phoneDigits(driver.phone)}`} title="Ligar para o motorista"><Phone size={13} /> Ligar</a>
+                        <a className="phone-action whatsapp-action" href={`https://wa.me/${whatsappDigits(driver.phone)}`} target="_blank" rel="noreferrer" title="Conversar pelo WhatsApp"><MessageCircle size={13} /> WhatsApp</a>
+                      </span>
                       <small className="truck-type">{driver.truckType || 'Tipo não informado'}</small>
                     </td>
                   </tr>
@@ -360,7 +371,11 @@ function App() {
                         <td>{formatDateTime(driver.joinedAt)}</td>
                         <td>{driver.plate}</td>
                         <td>
-                          <a className="phone-link" href={`tel:${driver.phone.replace(/\D/g, '')}`}>{driver.phone}</a>
+                          <strong className="phone-link">{driver.phone}</strong>
+                          <span className="phone-actions">
+                            <a className="phone-action" href={`tel:${phoneDigits(driver.phone)}`} title="Ligar para o motorista"><Phone size={13} /> Ligar</a>
+                            <a className="phone-action whatsapp-action" href={`https://wa.me/${whatsappDigits(driver.phone)}`} target="_blank" rel="noreferrer" title="Conversar pelo WhatsApp"><MessageCircle size={13} /> WhatsApp</a>
+                          </span>
                           <small className="truck-type">{driver.truckType || 'Tipo não informado'}</small>
                         </td>
                         <td>{formatMinutes(driver.waitingMinutes)}</td>
