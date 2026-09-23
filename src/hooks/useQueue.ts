@@ -54,14 +54,16 @@ export function useQueue() {
     localStorage.setItem(queueCacheKey, JSON.stringify(safeQueue))
   }
 
-  const refreshQueue = async () => {
+  const refreshQueue = async (showError = true) => {
     setLoading(true)
     setErrorMessage('')
 
     if (!supabase) {
       setDrivers([])
       localStorage.setItem(queueCacheKey, JSON.stringify([]))
-      setErrorMessage('Banco não configurado neste endereço. Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel.')
+      if (showError) {
+        setErrorMessage('Banco não configurado neste endereço. Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel.')
+      }
       setLoading(false)
       return false
     }
@@ -71,7 +73,9 @@ export function useQueue() {
       applyQueueData(nextDrivers)
       return true
     } catch (error) {
-      setErrorMessage(error instanceof Error ? `Não foi possível atualizar a fila: ${error.message}` : 'Não foi possível atualizar a fila.')
+      if (showError) {
+        setErrorMessage(`Não foi possível atualizar a fila: ${getQueueErrorMessage(error, 'verifique a conexão com o Supabase.')}`)
+      }
       return false
     } finally {
       setLoading(false)
@@ -85,12 +89,12 @@ export function useQueue() {
       return
     }
 
-    void refreshQueue()
+    void refreshQueue(false)
 
     const channel = supabase.channel('queue-updates').on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'queue_entries' },
-      () => { void refreshQueue() },
+      () => { void refreshQueue(false) },
     ).subscribe()
 
     return () => {
