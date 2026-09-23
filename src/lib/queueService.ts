@@ -2,6 +2,13 @@ import { supabase } from './supabase'
 import type { Driver, QueueStatus } from '../types/queue'
 
 const demoQueue: Driver[] = []
+export const defaultDriverPassword = 'Fila1234'
+
+async function hashPassword(password: string) {
+  const bytes = new TextEncoder().encode(password)
+  const hash = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
 
 export async function getQueueData() {
   if (!supabase) return demoQueue
@@ -281,18 +288,39 @@ export async function signInAdmin(email: string, password: string) {
   return { ok: true, message: 'Administrador autenticado com sucesso.' }
 }
 
-export async function signInDriver(plate: string, phone: string) {
+export async function signInDriver(plate: string, phone: string, password: string) {
   if (!supabase) return { ok: false, message: 'Banco não configurado.' as const }
 
   const { data: driver, error: driverError } = await supabase
     .from('drivers')
-    .select('id, name, plate, phone, carrier, truck_type')
+    .select('id, name, plate, phone, carrier, truck_type, password_hash, must_change_password')
     .ilike('plate', plate.trim().toUpperCase())
     .maybeSingle()
 
   if (driverError) throw driverError
   if (!driver || driver.phone.replace(/\D/g, '') !== phone.replace(/\D/g, '')) {
     return { ok: false, message: 'Placa ou telefone não conferem.' as const }
+  }
+
+  if (!driver.password_hash || driver.password_hash !== await hashPassword(password)) {
+    return { ok: false, message: 'Senha inválida.' as const }
+  }
+
+  const driverInfo: Driver = {
+    id: driver.id,
+    name: driver.name,
+    plate: driver.plate,
+    phone: driver.phone,
+    company: driver.carrier,
+    truckType: driver.truck_type,
+    status: 'AGUARDANDO',
+    position: 0,
+    waitingMinutes: 0,
+    estimatedMinutes: 0,
+  }
+
+  if (driver.must_change_password) {
+    return { ok: true, mustChangePassword: true, message: 'Troque sua senha para continuar.', driver: driverInfo }
   }
 
   const { data: entry, error: entryError } = await supabase
@@ -311,12 +339,7 @@ export async function signInDriver(plate: string, phone: string) {
     ok: true,
     message: 'Motorista autenticado com sucesso.',
     driver: {
-      id: driver.id,
-      name: driver.name,
-      plate: driver.plate,
-      phone: driver.phone,
-      company: driver.carrier,
-      truckType: driver.truck_type,
+      ...driverInfo,
       status: entry.status as QueueStatus,
       position: entry.position,
       waitingMinutes: Number(entry.estimated_wait_minutes ?? 0),
@@ -324,4 +347,11 @@ export async function signInDriver(plate: string, phone: string) {
       joinedAt: entry.joined_at,
     } satisfies Driver,
   }
+}
+
+export async function changeDriverPassword(driverId: string, password: string) {
+  if (!supabase) return { ok: false, message: 'Banco não configurado.' }
+  const { error } = await supabase.from('drivers').update({ password_hash: await hashPassword(password), must_change_password: false }).eq('id', driverId)
+  if (error) throw error
+  return { ok: true, message: 'Senha alterada com sucesso.' }
 }

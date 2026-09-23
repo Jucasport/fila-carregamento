@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock3, Gauge, MapPinned, MessageCircle, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
-import { signInAdmin, signInDriver } from './lib/queueService'
+import { changeDriverPassword, defaultDriverPassword, signInAdmin, signInDriver } from './lib/queueService'
 import type { Driver } from './types/queue'
 import './App.css'
 
@@ -35,7 +35,11 @@ function App() {
   const [truckType, setTruckType] = useState('')
   const [driverLoginPlate, setDriverLoginPlate] = useState('')
   const [driverLoginPhone, setDriverLoginPhone] = useState('')
+  const [driverLoginPassword, setDriverLoginPassword] = useState('')
+  const [newDriverPassword, setNewDriverPassword] = useState('')
+  const [confirmDriverPassword, setConfirmDriverPassword] = useState('')
   const [driverLoggedIn, setDriverLoggedIn] = useState(false)
+  const [mustChangePassword, setMustChangePassword] = useState(false)
   const [driverMessage, setDriverMessage] = useState('')
   const [joinedDriver, setJoinedDriver] = useState<Driver | null>(null)
   const [adminEmail, setAdminEmail] = useState('admin@fila.com')
@@ -88,6 +92,7 @@ function App() {
     setEntryMessage('Motorista adicionado à fila com sucesso.')
     setJoinedDriver(newDriver)
     setDriverLoggedIn(true)
+    setMustChangePassword(false)
     localStorage.setItem('fila-carregamento:driver-plate', newDriver.plate)
     setName('')
     setPlate('')
@@ -102,7 +107,7 @@ function App() {
     }
 
     try {
-      const result = await signInDriver(driverLoginPlate, driverLoginPhone)
+      const result = await signInDriver(driverLoginPlate, driverLoginPhone, driverLoginPassword)
       if (!result.ok || !result.driver) {
         setDriverMessage(result.message)
         return
@@ -110,6 +115,7 @@ function App() {
 
       setJoinedDriver(result.driver)
       setDriverLoggedIn(true)
+      setMustChangePassword(Boolean(result.mustChangePassword))
       setDriverMessage(result.message)
       localStorage.setItem('fila-carregamento:driver-plate', result.driver.plate)
     } catch (error) {
@@ -117,9 +123,36 @@ function App() {
     }
   }
 
+  const handleChangeDriverPassword = async () => {
+    if (!joinedDriver) return
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8}$/.test(newDriverPassword)) {
+      setDriverMessage('A nova senha deve ter exatamente 8 caracteres, com letras e números.')
+      return
+    }
+    if (newDriverPassword !== confirmDriverPassword) {
+      setDriverMessage('A confirmação da senha não confere.')
+      return
+    }
+
+    try {
+      const result = await changeDriverPassword(joinedDriver.id, newDriverPassword)
+      if (!result.ok) {
+        setDriverMessage(result.message)
+        return
+      }
+      setMustChangePassword(false)
+      setDriverMessage('Senha alterada. Agora você pode visualizar a fila.')
+      setNewDriverPassword('')
+      setConfirmDriverPassword('')
+    } catch (error) {
+      setDriverMessage(error instanceof Error ? error.message : 'Não foi possível alterar a senha.')
+    }
+  }
+
   const handleDriverLogout = () => {
     setDriverLoggedIn(false)
     setJoinedDriver(null)
+    setMustChangePassword(false)
     setDriverMessage('')
     localStorage.removeItem('fila-carregamento:driver-plate')
   }
@@ -159,7 +192,7 @@ function App() {
       </header>
 
       <main className="layout">
-        {accessMode === 'driver' && !driverLoggedIn ? <section className="card entry-card">
+        {accessMode === 'driver' && (!driverLoggedIn || mustChangePassword || currentDriver?.position === 0) ? <section className="card entry-card">
           <div className="section-header">
             <Truck size={22} />
             <h2>Acesso do motorista</h2>
@@ -175,9 +208,20 @@ function App() {
               <span>Telefone cadastrado</span>
               <input value={driverLoginPhone} onChange={(event) => setDriverLoginPhone(event.target.value)} placeholder="(81) 99999-9999" />
             </label>
+            <label>
+              <span>Senha</span>
+              <input type="password" value={driverLoginPassword} onChange={(event) => setDriverLoginPassword(event.target.value)} placeholder={defaultDriverPassword} />
+            </label>
           </div>
 
-          <button className="primary-button" onClick={() => void handleDriverLogin()}>VER MINHA POSIÇÃO</button>
+          {!driverLoggedIn ? <button className="primary-button" onClick={() => void handleDriverLogin()}>VER MINHA POSIÇÃO</button> : null}
+          {mustChangePassword ? <div className="form-grid">
+            <p className="admin-message">Primeiro acesso: troque a senha padrão antes de visualizar a fila.</p>
+            <label><span>Nova senha</span><input type="password" value={newDriverPassword} onChange={(event) => setNewDriverPassword(event.target.value)} placeholder="8 letras e números" /></label>
+            <label><span>Confirmar nova senha</span><input type="password" value={confirmDriverPassword} onChange={(event) => setConfirmDriverPassword(event.target.value)} placeholder="REPITA A SENHA" /></label>
+            <button className="primary-button" onClick={() => void handleChangeDriverPassword()}>TROCAR SENHA E CONTINUAR</button>
+          </div> : null}
+          {(!driverLoggedIn || (!mustChangePassword && currentDriver?.position === 0)) ? <>
           <p className="access-help">Ainda não está cadastrado?</p>
           <div className="form-grid">
             <label><span>Nome do motorista</span><input value={name} onChange={(event) => setName(event.target.value.toUpperCase())} placeholder="EX: JOÃO SILVA" /></label>
@@ -189,12 +233,13 @@ function App() {
           <button className="primary-button" onClick={handleJoinQueue}>
             CADASTRAR E ENTRAR NA FILA
           </button>
+          </> : null}
           {driverMessage ? <p className="admin-message">{driverMessage}</p> : null}
           {entryMessage ? <p className="admin-message">{entryMessage}</p> : null}
           {errorMessage ? <p className="admin-message">{errorMessage}</p> : null}
         </section> : null}
 
-        {accessMode === 'driver' && driverLoggedIn ? <section className="card driver-card">
+        {accessMode === 'driver' && driverLoggedIn && !mustChangePassword && currentDriver?.position !== 0 ? <section className="card driver-card">
           <div className="driver-header">
             <div>
               <p className="eyebrow accent">Olá, {currentDriver?.name || 'motorista'}</p>
@@ -260,7 +305,7 @@ function App() {
           <button className="text-button" onClick={handleDriverLogout}>SAIR DO ACESSO DO MOTORISTA</button>
         </section> : null}
 
-        <section className="card public-queue-card">
+        {(accessMode === 'admin' || (accessMode === 'driver' && driverLoggedIn && !mustChangePassword)) ? <section className="card public-queue-card">
           <div className="section-header">
             <MapPinned size={22} />
             <div>
@@ -306,7 +351,7 @@ function App() {
               </tbody>
             </table>
           </div>
-        </section>
+        </section> : null}
 
         {accessMode === 'admin' ? <section className="card admin-card">
           {!adminLoggedIn ? (
