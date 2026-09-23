@@ -149,14 +149,48 @@ export async function removeDriverFromQueue(plate: string) {
   const { data: driver, error: driverError } = await supabase
     .from('drivers')
     .select('id')
-    .eq('plate', plate)
+    .ilike('plate', plate)
     .single()
 
   if (driverError) throw driverError
 
-  const { error } = await supabase.rpc('remove_driver_from_queue', { target_driver_id: driver.id })
+  const activeStatuses = ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO']
+  const { data: activeEntries, error: activeEntriesError } = await supabase
+    .from('queue_entries')
+    .select('id, queue_id, position')
+    .eq('driver_id', driver.id)
+    .in('status', activeStatuses)
+    .order('joined_at', { ascending: false })
+
+  if (activeEntriesError) throw activeEntriesError
+  const entry = activeEntries?.[0]
+  if (!entry) throw new Error('Motorista não está em uma fila ativa.')
+
+  const { error } = await supabase
+    .from('queue_entries')
+    .update({ status: 'CANCELADO', updated_at: new Date().toISOString() })
+    .eq('id', entry.id)
 
   if (error) throw error
+
+  const { data: remainingEntries, error: remainingError } = await supabase
+    .from('queue_entries')
+    .select('id')
+    .eq('queue_id', entry.queue_id)
+    .in('status', activeStatuses)
+    .order('position', { ascending: true })
+    .order('joined_at', { ascending: true })
+
+  if (remainingError) throw remainingError
+
+  for (const [index, remainingEntry] of (remainingEntries ?? []).entries()) {
+    const { error: positionError } = await supabase
+      .from('queue_entries')
+      .update({ position: index + 1, updated_at: new Date().toISOString() })
+      .eq('id', remainingEntry.id)
+
+    if (positionError) throw positionError
+  }
 }
 
 export async function markDriverLoaded(plate: string) {
