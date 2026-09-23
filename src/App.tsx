@@ -95,6 +95,11 @@ function App() {
       return
     }
 
+    if (!truckType.trim()) {
+      setEntryMessage('Informe o tipo de caminhão antes de entrar na fila.')
+      return
+    }
+
     const newDriver: Driver = {
       ...currentDriver,
       truckType: truckType.trim() || undefined,
@@ -304,6 +309,11 @@ function App() {
                   <a className="phone-action whatsapp-action" href={`https://wa.me/${whatsappDigits(currentDriver.phone)}`} target="_blank" rel="noreferrer" title="Conversar pelo WhatsApp"><MessageCircle size={14} /> WhatsApp</a>
                 </span>
               ) : null}
+            </div>
+            <div>
+              <Truck size={18} />
+              <span>Tipo de caminhão</span>
+              <strong>{currentDriver?.truckType || 'Não informado'}</strong>
             </div>
             <div>
               <Clock3 size={18} />
