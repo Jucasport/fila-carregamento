@@ -363,7 +363,13 @@ export async function signInDriver(plate: string, password: string) {
     .maybeSingle()
 
   if (entryError) throw entryError
-  if (!entry) return { ok: false, message: 'Este motorista não está em uma fila ativa.' as const }
+  if (!entry) {
+    return {
+      ok: true,
+      message: 'Motorista autenticado. Você pode entrar novamente na fila.',
+      driver: driverInfo,
+    }
+  }
 
   return {
     ok: true,
