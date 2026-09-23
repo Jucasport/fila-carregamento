@@ -31,7 +31,6 @@ function App() {
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
-  const [carrier, setCarrier] = useState('')
   const [truckType, setTruckType] = useState('')
   const [joinedDriver, setJoinedDriver] = useState<Driver | null>(null)
   const [adminEmail, setAdminEmail] = useState('admin@fila.com')
@@ -81,7 +80,6 @@ function App() {
       name: name.trim(),
       plate: normalizedPlate,
       phone: phone.trim(),
-      company: carrier.trim() || undefined,
       truckType: truckType.trim() || undefined,
       status: 'AGUARDANDO',
       position: drivers.length + 1,
@@ -99,7 +97,6 @@ function App() {
     setName('')
     setPlate('')
     setPhone('')
-    setCarrier('')
     setTruckType('')
   }
 
@@ -165,11 +162,6 @@ function App() {
             <label>
               <span>Telefone</span>
               <input required value={phone} onChange={(event) => setPhone(event.target.value.toUpperCase())} placeholder="(81) 99999-9999" />
-            </label>
-
-            <label>
-              <span>Transportadora</span>
-              <input value={carrier} onChange={(event) => setCarrier(event.target.value.toUpperCase())} placeholder="OPCIONAL" />
             </label>
 
             <label>
