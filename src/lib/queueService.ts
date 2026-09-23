@@ -10,6 +10,35 @@ async function hashPassword(password: string) {
   return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+export async function registerDriverAccount(name: string, plate: string, phone: string) {
+  if (!supabase) return { ok: false, message: 'Banco não configurado.' }
+
+  const normalizedPlate = plate.trim().toUpperCase()
+  const { data: existingDriver, error: existingError } = await supabase
+    .from('drivers')
+    .select('id')
+    .ilike('plate', normalizedPlate)
+    .maybeSingle()
+
+  if (existingError) throw existingError
+  if (existingDriver) return { ok: false, message: 'Já existe um cadastro com esta placa.' }
+
+  const { error } = await supabase.from('drivers').insert({
+    name: name.trim().toUpperCase(),
+    plate: normalizedPlate,
+    phone: phone.trim(),
+    password_hash: await hashPassword(defaultDriverPassword),
+    must_change_password: true,
+  })
+
+  if (error?.code === 'PGRST204' && error.message.includes('password_hash')) {
+    throw new Error('Execute a migração de senha do motorista no Supabase antes de cadastrar novos acessos.')
+  }
+  if (error) throw error
+
+  return { ok: true, message: `Cadastro criado. A senha inicial é ${defaultDriverPassword}.` }
+}
+
 export async function getQueueData() {
   if (!supabase) return demoQueue
 

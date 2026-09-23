@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock3, Gauge, MapPinned, MessageCircle, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
-import { changeDriverPassword, defaultDriverPassword, signInAdmin, signInDriver } from './lib/queueService'
+import { changeDriverPassword, defaultDriverPassword, registerDriverAccount, signInAdmin, signInDriver } from './lib/queueService'
 import type { Driver } from './types/queue'
 import './App.css'
 
@@ -29,6 +29,7 @@ function whatsappDigits(value: string) {
 function App() {
   const { drivers, addDriver, callNext, removeDriver, refreshQueue, loading, errorMessage } = useQueue()
   const [accessMode, setAccessMode] = useState<'driver' | 'admin'>('driver')
+  const [driverAccessView, setDriverAccessView] = useState<'register' | 'login'>('register')
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
@@ -50,16 +51,7 @@ function App() {
 
   const currentDriver = driverLoggedIn ? joinedDriver : null
 
-  const queueStats = useMemo(() => {
-    const waiting = drivers.filter((driver) => driver.status === 'AGUARDANDO').length
-    const next = drivers.filter((driver) => driver.status === 'PRÓXIMO').length
-    const inLoading = drivers.filter((driver) => driver.status === 'EM_CARREGAMENTO').length
-    const totalAwaiting = drivers.length
-
-    return { waiting, next, inLoading, totalAwaiting }
-  }, [drivers])
-
-  const handleJoinQueue = async () => {
+  const handleDriverRegistration = async () => {
     const missingFields = [
       !name.trim() ? 'nome do motorista' : '',
       !plate.trim() ? 'placa do caminhão' : '',
@@ -71,13 +63,40 @@ function App() {
       return
     }
 
-    const normalizedPlate = plate.trim().toUpperCase()
+    try {
+      const result = await registerDriverAccount(name, plate, phone)
+      setEntryMessage(result.message)
+      if (result.ok) {
+        setDriverLoginPlate(plate.trim().toUpperCase())
+        setDriverLoginPhone(phone.trim())
+        setDriverLoginPassword(defaultDriverPassword)
+        setDriverAccessView('login')
+        setName('')
+        setPlate('')
+        setPhone('')
+      }
+    } catch (error) {
+      setEntryMessage(error instanceof Error ? error.message : 'Não foi possível cadastrar o motorista.')
+    }
+  }
+
+  const queueStats = useMemo(() => {
+    const waiting = drivers.filter((driver) => driver.status === 'AGUARDANDO').length
+    const next = drivers.filter((driver) => driver.status === 'PRÓXIMO').length
+    const inLoading = drivers.filter((driver) => driver.status === 'EM_CARREGAMENTO').length
+    const totalAwaiting = drivers.length
+
+    return { waiting, next, inLoading, totalAwaiting }
+  }, [drivers])
+
+  const handleJoinQueue = async () => {
+    if (!currentDriver) {
+      setEntryMessage('Faça o login do motorista antes de entrar na fila.')
+      return
+    }
 
     const newDriver: Driver = {
-      id: `driver-${Date.now()}`,
-      name: name.trim(),
-      plate: normalizedPlate,
-      phone: phone.trim(),
+      ...currentDriver,
       truckType: truckType.trim() || undefined,
       status: 'AGUARDANDO',
       position: drivers.length + 1,
@@ -90,21 +109,7 @@ function App() {
     if (!added) return
 
     setEntryMessage('Motorista adicionado à fila com sucesso.')
-    const firstAccess = await signInDriver(newDriver.plate, newDriver.phone, defaultDriverPassword)
-    if (!firstAccess.ok || !firstAccess.driver) {
-      setDriverMessage(firstAccess.message)
-      return
-    }
-
-    setJoinedDriver(firstAccess.driver)
-    setDriverLoggedIn(true)
-    setMustChangePassword(true)
-    setDriverLoginPlate(newDriver.plate)
-    setDriverLoginPhone(newDriver.phone)
-    localStorage.setItem('fila-carregamento:driver-plate', newDriver.plate)
-    setName('')
-    setPlate('')
-    setPhone('')
+    setJoinedDriver(newDriver)
     setTruckType('')
   }
 
@@ -203,44 +208,41 @@ function App() {
         {accessMode === 'driver' && (!driverLoggedIn || mustChangePassword || currentDriver?.position === 0) ? <section className="card entry-card">
           <div className="section-header">
             <Truck size={22} />
-            <h2>Acesso do motorista</h2>
+            <h2>{!driverLoggedIn ? (driverAccessView === 'register' ? 'Cadastro do motorista' : 'Login do motorista') : mustChangePassword ? 'Troca obrigatória de senha' : 'Entrar na fila'}</h2>
           </div>
 
-          <div className="form-grid">
-            <label>
-              <span>Placa cadastrada</span>
-              <input value={driverLoginPlate} onChange={(event) => setDriverLoginPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" />
-            </label>
+          {!driverLoggedIn && driverAccessView === 'register' ? <>
+            <p className="access-help">Faça seu cadastro inicial para criar o acesso.</p>
+            <div className="form-grid">
+              <label><span>Nome do motorista</span><input value={name} onChange={(event) => setName(event.target.value.toUpperCase())} placeholder="EX: JOÃO SILVA" /></label>
+              <label><span>Placa do caminhão</span><input value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" /></label>
+              <label><span>Telefone</span><input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(81) 99999-9999" /></label>
+            </div>
+            <button className="primary-button" onClick={() => void handleDriverRegistration()}>CADASTRAR MOTORISTA</button>
+            <button className="text-button" onClick={() => setDriverAccessView('login')}>JÁ TENHO CADASTRO</button>
+          </> : null}
 
-            <label>
-              <span>Telefone cadastrado</span>
-              <input value={driverLoginPhone} onChange={(event) => setDriverLoginPhone(event.target.value)} placeholder="(81) 99999-9999" />
-            </label>
-            <label>
-              <span>Senha</span>
-              <input type="password" value={driverLoginPassword} onChange={(event) => setDriverLoginPassword(event.target.value)} placeholder={defaultDriverPassword} />
-            </label>
-          </div>
+          {!driverLoggedIn && driverAccessView === 'login' ? <>
+            <div className="form-grid">
+              <label><span>Placa cadastrada</span><input value={driverLoginPlate} onChange={(event) => setDriverLoginPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" /></label>
+              <label><span>Telefone cadastrado</span><input value={driverLoginPhone} onChange={(event) => setDriverLoginPhone(event.target.value)} placeholder="(81) 99999-9999" /></label>
+              <label><span>Senha</span><input type="password" value={driverLoginPassword} onChange={(event) => setDriverLoginPassword(event.target.value)} placeholder={defaultDriverPassword} /></label>
+            </div>
+            <button className="primary-button" onClick={() => void handleDriverLogin()}>ENTRAR</button>
+            <button className="text-button" onClick={() => setDriverAccessView('register')}>CRIAR CADASTRO INICIAL</button>
+          </> : null}
 
-          {!driverLoggedIn ? <button className="primary-button" onClick={() => void handleDriverLogin()}>VER MINHA POSIÇÃO</button> : null}
           {mustChangePassword ? <div className="form-grid">
             <p className="admin-message">Primeiro acesso: troque a senha padrão antes de visualizar a fila.</p>
             <label><span>Nova senha</span><input type="password" value={newDriverPassword} onChange={(event) => setNewDriverPassword(event.target.value)} placeholder="8 letras e números" /></label>
             <label><span>Confirmar nova senha</span><input type="password" value={confirmDriverPassword} onChange={(event) => setConfirmDriverPassword(event.target.value)} placeholder="REPITA A SENHA" /></label>
             <button className="primary-button" onClick={() => void handleChangeDriverPassword()}>TROCAR SENHA E CONTINUAR</button>
           </div> : null}
-          {(!driverLoggedIn || (!mustChangePassword && currentDriver?.position === 0)) ? <>
-          <p className="access-help">Ainda não está cadastrado?</p>
-          <div className="form-grid">
-            <label><span>Nome do motorista</span><input value={name} onChange={(event) => setName(event.target.value.toUpperCase())} placeholder="EX: JOÃO SILVA" /></label>
-            <label><span>Placa do caminhão</span><input value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="ABC1D23" /></label>
-            <label><span>Telefone</span><input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(81) 99999-9999" /></label>
-            <label><span>Tipo de caminhão</span><input value={truckType} onChange={(event) => setTruckType(event.target.value.toUpperCase())} placeholder="EX: CARRETA BAÚ" /></label>
-          </div>
 
-          <button className="primary-button" onClick={handleJoinQueue}>
-            CADASTRAR E ENTRAR NA FILA
-          </button>
+          {driverLoggedIn && !mustChangePassword && currentDriver?.position === 0 ? <>
+            <p className="access-help">Cadastro para entrar na fila</p>
+            <label><span>Tipo de caminhão</span><input value={truckType} onChange={(event) => setTruckType(event.target.value.toUpperCase())} placeholder="EX: CARRETA BAÚ" /></label>
+            <button className="primary-button" onClick={() => void handleJoinQueue()}>ENTRAR NA FILA</button>
           </> : null}
           {driverMessage ? <p className="admin-message">{driverMessage}</p> : null}
           {entryMessage ? <p className="admin-message">{entryMessage}</p> : null}
