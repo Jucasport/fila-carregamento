@@ -173,6 +173,20 @@ function App() {
     localStorage.removeItem('fila-carregamento:driver-plate')
   }
 
+  const handleLeaveQueue = async () => {
+    if (!currentDriver) return
+    const confirmed = window.confirm('Deseja sair da fila? Sua posição será liberada e os demais motoristas subirão uma posição.')
+    if (!confirmed) return
+
+    const removed = await removeDriver(currentDriver.plate)
+    if (!removed) return
+
+    setJoinedDriver(null)
+    setDriverLoggedIn(false)
+    setEntryMessage('Você saiu da fila. As posições foram reorganizadas.')
+    localStorage.removeItem('fila-carregamento:driver-plate')
+  }
+
   const handleNext = async () => {
     await callNext()
   }
@@ -320,6 +334,9 @@ function App() {
           </div>
 
           <button className="text-button" onClick={handleDriverLogout}>SAIR DO ACESSO DO MOTORISTA</button>
+          <button className="remove-button leave-queue-button" onClick={() => void handleLeaveQueue()}>
+            <Trash2 size={16} /> SAIR DA FILA
+          </button>
         </section> : null}
 
         {(accessMode === 'admin' || (accessMode === 'driver' && driverLoggedIn && !mustChangePassword)) ? <section className="card public-queue-card">
