@@ -16,10 +16,23 @@ export async function getQueueData() {
     .not('status', 'in', '(CARREGADO,CANCELADO,AUSENTE)')
     .order('position', { ascending: true })
 
-  if (error) throw error
+  if (error) {
+    const fallback = await supabase
+      .from('queue_entries')
+      .select('*, driver:drivers(name, plate, phone, carrier)')
+      .not('status', 'in', '(CARREGADO,CANCELADO,AUSENTE)')
+      .order('position', { ascending: true })
+
+    if (fallback.error) throw fallback.error
+    return mapQueueEntries(fallback.data ?? [])
+  }
   if (!data) return []
 
-  return data.map((entry: any) => ({
+  return mapQueueEntries(data)
+}
+
+function mapQueueEntries(entries: any[]) {
+  return entries.map((entry: any) => ({
     id: String(entry.driver_id ?? entry.id),
     name: entry.driver?.name ?? 'Motorista',
     plate: entry.driver?.plate ?? 'SEM PLACA',
@@ -99,11 +112,7 @@ export async function removeDriverFromQueue(plate: string) {
 
   if (driverError) throw driverError
 
-  const { error } = await supabase
-    .from('queue_entries')
-    .update({ status: 'CANCELADO' })
-    .eq('driver_id', driver.id)
-    .in('status', ['AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO'])
+  const { error } = await supabase.rpc('remove_driver_from_queue', { target_driver_id: driver.id })
 
   if (error) throw error
 }

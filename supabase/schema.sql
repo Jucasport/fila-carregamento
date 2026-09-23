@@ -152,6 +152,43 @@ begin
 end;
 $$;
 
+create or replace function remove_driver_from_queue(target_driver_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  removed_queue_id uuid;
+  removed_position integer;
+begin
+  select queue_id, position
+  into removed_queue_id, removed_position
+  from queue_entries
+  where driver_id = target_driver_id
+    and status in ('AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO')
+  order by joined_at desc
+  limit 1
+  for update;
+
+  if removed_queue_id is null then
+    return;
+  end if;
+
+  update queue_entries
+  set status = 'CANCELADO', updated_at = now()
+  where queue_id = removed_queue_id
+    and driver_id = target_driver_id
+    and position = removed_position;
+
+  update queue_entries
+  set position = position - 1, updated_at = now()
+  where queue_id = removed_queue_id
+    and status in ('AGUARDANDO', 'PRÓXIMO', 'CHAMADO', 'EM_CARREGAMENTO')
+    and position > removed_position;
+end;
+$$;
+
 alter table companies enable row level security;
 alter table locations enable row level security;
 alter table queues enable row level security;

@@ -74,8 +74,19 @@ export function useQueue() {
       if (exists) return current
       return [...current, { ...driver, position: current.length + 1 }]
     })
-    localStorage.setItem(queueCacheKey, JSON.stringify([...drivers, { ...driver, position: drivers.length + 1 }]))
+    const nextQueue = [...drivers, { ...driver, position: drivers.length + 1 }]
+    localStorage.setItem(queueCacheKey, JSON.stringify(nextQueue))
     setErrorMessage('')
+
+    if (supabase) {
+      try {
+        const refreshedQueue = await getQueueData()
+        setDrivers(refreshedQueue)
+        localStorage.setItem(queueCacheKey, JSON.stringify(refreshedQueue))
+      } catch {
+        // Keep the optimistic entry if the refresh is temporarily unavailable.
+      }
+    }
 
     return true
   }
@@ -123,6 +134,15 @@ export function useQueue() {
     }
 
     setDrivers((current) => current.filter((driver) => driver.plate.toUpperCase() !== plate.toUpperCase()))
+    if (supabase) {
+      try {
+        const refreshedQueue = await getQueueData()
+        setDrivers(refreshedQueue)
+        localStorage.setItem(queueCacheKey, JSON.stringify(refreshedQueue))
+      } catch {
+        // Keep the local removal until realtime refreshes the queue.
+      }
+    }
     return true
   }
 
