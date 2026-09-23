@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { resolveQueueSnapshot } from './hooks/useQueue'
+import type { Driver as QueueDriver } from './types/queue'
 
 export type QueueStatus =
   | 'AGUARDANDO'
@@ -167,5 +169,14 @@ describe('Fila de carregamento', () => {
 
     expect(hasDuplicatePlate(queue, 'abc1234')).toBe(true)
     expect(hasDuplicatePlate(queue, 'XYZ9999')).toBe(false)
+  })
+
+  it('não deve reaproveitar a fila em cache quando o banco vier vazio', () => {
+    const cachedQueue: QueueDriver[] = [
+      { id: '1', name: 'João', plate: 'ABC1234', phone: '1111', status: 'AGUARDANDO', position: 1, waitingMinutes: 0, estimatedMinutes: 0 },
+    ]
+
+    expect(resolveQueueSnapshot([], cachedQueue)).toEqual([])
+    expect(resolveQueueSnapshot([{ id: '2', name: 'Maria', plate: 'DEF4321', phone: '2222', status: 'AGUARDANDO', position: 1, waitingMinutes: 0, estimatedMinutes: 0 }], cachedQueue)).toHaveLength(1)
   })
 })

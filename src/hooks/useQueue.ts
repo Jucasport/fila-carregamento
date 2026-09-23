@@ -3,15 +3,25 @@ import { supabase } from '../lib/supabase'
 import { addDriverToQueue, callNextDriver, getQueueData, markDriverLoaded, removeDriverFromQueue } from '../lib/queueService'
 import type { Driver } from '../types/queue'
 
-const mockQueue: Driver[] = [
-  { id: '1', name: 'João', plate: 'ABC1234', phone: '(81) 99999-0001', company: 'Transporte Norte', status: 'AGUARDANDO', position: 1, waitingMinutes: 95, estimatedMinutes: 115 },
-  { id: '2', name: 'Carlos', plate: 'DEF5678', phone: '(81) 99999-0002', company: 'Logitrans', status: 'AGUARDANDO', position: 2, waitingMinutes: 120, estimatedMinutes: 150 },
-  { id: '3', name: 'Pedro', plate: 'GHI9012', phone: '(81) 99999-0003', company: 'Frota Brasil', status: 'AGUARDANDO', position: 3, waitingMinutes: 155, estimatedMinutes: 180 },
-]
+const mockQueue: Driver[] = []
 
 const queueCacheKey = 'fila-carregamento:queue-cache'
 
+export function resolveQueueSnapshot(nextDrivers: Driver[], cachedDrivers: Driver[] = readCachedQueue()) {
+  if (!Array.isArray(nextDrivers)) {
+    return cachedDrivers
+  }
+
+  if (nextDrivers.length === 0) {
+    return []
+  }
+
+  return nextDrivers
+}
+
 function readCachedQueue() {
+  if (!supabase) return []
+
   try {
     const cached = localStorage.getItem(queueCacheKey)
     return cached ? JSON.parse(cached) as Driver[] : mockQueue
@@ -25,33 +35,49 @@ export function useQueue() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
+  const applyQueueData = (nextDrivers: Driver[]) => {
+    const safeQueue = resolveQueueSnapshot(nextDrivers)
+    setDrivers(safeQueue)
+    localStorage.setItem(queueCacheKey, JSON.stringify(safeQueue))
+  }
+
+  const refreshQueue = async () => {
+    setLoading(true)
+    setErrorMessage('')
+
+    if (!supabase) {
+      setDrivers([])
+      localStorage.setItem(queueCacheKey, JSON.stringify([]))
+      setErrorMessage('Banco não configurado neste endereço. Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel.')
+      setLoading(false)
+      return false
+    }
+
+    try {
+      const nextDrivers = await getQueueData()
+      applyQueueData(nextDrivers)
+      return true
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? `Não foi possível atualizar a fila: ${error.message}` : 'Não foi possível atualizar a fila.')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!supabase) {
-      setDrivers(mockQueue)
+      setDrivers([])
       setLoading(false)
       return
     }
 
-    const fetchQueue = async () => {
-      setLoading(true)
-
-      try {
-        const nextDrivers = await getQueueData()
-        setDrivers(nextDrivers)
-        localStorage.setItem(queueCacheKey, JSON.stringify(nextDrivers))
-      } catch {
-        setDrivers(readCachedQueue())
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void fetchQueue()
+    void refreshQueue()
 
     const channel = supabase.channel('queue-updates').on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'queue_entries' },
-      () => { void fetchQueue() },
+      () => { void refreshQueue() },
     ).subscribe()
 
     return () => {
@@ -62,27 +88,25 @@ export function useQueue() {
   }, [])
 
   const addDriver = async (driver: Driver) => {
+    setErrorMessage('')
+
     try {
       await addDriverToQueue(driver)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível entrar na fila.')
+      const reason = error instanceof Error ? error.message : 'Não foi possível entrar na fila.'
+      setErrorMessage(`Não foi possível entrar na fila: ${reason}`)
       return false
     }
 
-    setDrivers((current) => {
-      const exists = current.some((item) => item.plate.toUpperCase() === driver.plate.toUpperCase())
-      if (exists) return current
-      return [...current, { ...driver, position: current.length + 1 }]
-    })
     const nextQueue = [...drivers, { ...driver, position: drivers.length + 1 }]
+    setDrivers(nextQueue)
     localStorage.setItem(queueCacheKey, JSON.stringify(nextQueue))
     setErrorMessage('')
 
     if (supabase) {
       try {
         const refreshedQueue = await getQueueData()
-        setDrivers(refreshedQueue)
-        localStorage.setItem(queueCacheKey, JSON.stringify(refreshedQueue))
+        applyQueueData(refreshedQueue)
       } catch {
         // Keep the optimistic entry if the refresh is temporarily unavailable.
       }
@@ -150,5 +174,5 @@ export function useQueue() {
     return true
   }
 
-  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext, markLoaded, removeDriver }
+  return { drivers, loading, errorMessage, setDrivers, addDriver, callNext, markLoaded, removeDriver, refreshQueue }
 }

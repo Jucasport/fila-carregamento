@@ -1,11 +1,7 @@
 import { supabase } from './supabase'
 import type { Driver, QueueStatus } from '../types/queue'
 
-const demoQueue: Driver[] = [
-  { id: '1', name: 'João', plate: 'ABC1234', phone: '(81) 99999-0001', company: 'Transporte Norte', status: 'AGUARDANDO', position: 1, waitingMinutes: 95, estimatedMinutes: 115 },
-  { id: '2', name: 'Carlos', plate: 'DEF5678', phone: '(81) 99999-0002', company: 'Logitrans', status: 'AGUARDANDO', position: 2, waitingMinutes: 120, estimatedMinutes: 150 },
-  { id: '3', name: 'Pedro', plate: 'GHI9012', phone: '(81) 99999-0003', company: 'Frota Brasil', status: 'AGUARDANDO', position: 3, waitingMinutes: 155, estimatedMinutes: 180 },
-]
+const demoQueue: Driver[] = []
 
 export async function getQueueData() {
   if (!supabase) return demoQueue

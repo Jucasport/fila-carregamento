@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
+import { AlertTriangle, CheckCircle, CheckCircle2, Clock3, Gauge, MapPinned, Phone, RefreshCw, ShieldCheck, Trash2, Truck, User } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useMemo, useState } from 'react'
 import { useQueue } from './hooks/useQueue'
@@ -19,7 +19,7 @@ function formatDateTime(value?: string) {
 }
 
 function App() {
-  const { drivers, addDriver, callNext, markLoaded, removeDriver, errorMessage } = useQueue()
+  const { drivers, addDriver, callNext, markLoaded, removeDriver, refreshQueue, loading, errorMessage } = useQueue()
   const [name, setName] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
@@ -270,6 +270,10 @@ function App() {
               <p className="eyebrow">Acompanhamento público</p>
               <h2>Motoristas na fila</h2>
             </div>
+            <button className="refresh-button" onClick={() => void refreshQueue()} disabled={loading} title="Atualizar fila com dados do banco">
+              <RefreshCw size={17} className={loading ? 'spinning' : ''} />
+              {loading ? 'ATUALIZANDO' : 'ATUALIZAR'}
+            </button>
           </div>
 
           <div className="table-wrap">
