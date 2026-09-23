@@ -30,6 +30,19 @@ function readCachedQueue() {
   }
 }
 
+export function getQueueErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message
+
+  if (typeof error === 'object' && error !== null) {
+    const details = error as { message?: string; details?: string; hint?: string; code?: string }
+    const parts = [details.message, details.details, details.hint].filter(Boolean)
+    if (details.code) parts.push(`código ${details.code}`)
+    if (parts.length > 0) return parts.join(' - ')
+  }
+
+  return fallback
+}
+
 export function useQueue() {
   const [drivers, setDrivers] = useState<Driver[]>(readCachedQueue)
   const [loading, setLoading] = useState(false)
@@ -93,7 +106,7 @@ export function useQueue() {
     try {
       await addDriverToQueue(driver)
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'Não foi possível entrar na fila.'
+      const reason = getQueueErrorMessage(error, 'Não foi possível entrar na fila.')
       setErrorMessage(`Não foi possível entrar na fila: ${reason}`)
       return false
     }
