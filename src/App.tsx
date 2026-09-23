@@ -90,9 +90,17 @@ function App() {
     if (!added) return
 
     setEntryMessage('Motorista adicionado à fila com sucesso.')
-    setJoinedDriver(newDriver)
+    const firstAccess = await signInDriver(newDriver.plate, newDriver.phone, defaultDriverPassword)
+    if (!firstAccess.ok || !firstAccess.driver) {
+      setDriverMessage(firstAccess.message)
+      return
+    }
+
+    setJoinedDriver(firstAccess.driver)
     setDriverLoggedIn(true)
-    setMustChangePassword(false)
+    setMustChangePassword(true)
+    setDriverLoginPlate(newDriver.plate)
+    setDriverLoginPhone(newDriver.phone)
     localStorage.setItem('fila-carregamento:driver-plate', newDriver.plate)
     setName('')
     setPlate('')
